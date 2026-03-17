@@ -1,0 +1,172 @@
+#!/bin/zsh
+
+# Environment variables are loaded from .env by the env file
+
+function gw() {
+    local network=$1
+    local local_flag=$2
+    local response=""
+
+    # If empty, use mainnet
+    if [[ -z "$network" ]]; then
+        network="mainnet"
+    fi
+
+    # If only "--local" is set, use local gateway
+    if [[ "$network" == "--local" ]]; then
+        network="mainnet"
+        local_flag="--local"
+    fi
+
+    # If "help" is set, print help
+    if [[ "$network" == "help" ]]; then
+        echo "Usage: gw [network|chain_id] [--local]" >&2
+        echo "Network: any valid node_rpc_slug or numeric chain_id" >&2
+        echo "Options:" >&2
+        echo "  --local    Use local gateway (localhost:4949)" >&2
+        echo "" >&2
+        echo "Run 'gw list' to see all supported networks." >&2
+        return 1
+    fi
+
+    # Helper to fetch networks (cached per invocation)
+    _gw_fetch() {
+        if [[ -z "$response" ]]; then
+            response=$(curl -s "https://api.tenderly.co/api/v1/supported-networks")
+        fi
+    }
+
+    # List all supported networks
+    if [[ "$network" == "list" ]]; then
+        _gw_fetch
+        if [[ -z "$response" ]]; then
+            echo "Error: Failed to fetch supported networks." >&2
+            return 1
+        fi
+        echo "$response" | jq -r --arg key "$GATEWAY_KEY" --arg local "$local_flag" '
+            [.[] | select(.network_slugs.node_rpc_slug != "")]
+            | sort_by(.network_slugs.node_rpc_slug)
+            | .[]
+            | if $local == "--local" then
+                "  http://localhost:4949/\($key)/\(.network_slugs.node_rpc_slug)  (\(.network_name), chain \(.chain_id))"
+              else
+                "  https://\(.network_slugs.node_rpc_slug).gateway.tenderly.co/\($key)  (\(.network_name), chain \(.chain_id))"
+              end
+        ' >&2
+        return
+    fi
+
+    # If network is a number, resolve chain_id to slug
+    local resolved=false
+    if [[ "$network" =~ ^[0-9]+$ ]]; then
+        _gw_fetch
+        if [[ -z "$response" ]]; then
+            echo "Error: Failed to fetch supported networks." >&2
+            return 1
+        fi
+
+        local slug
+        slug=$(echo "$response" | jq -r --arg cid "$network" '
+            .[] | select(.chain_id == $cid and .network_slugs.node_rpc_slug != "") | .network_slugs.node_rpc_slug
+        ' | head -1)
+
+        if [[ -n "$slug" ]]; then
+            local name
+            name=$(echo "$response" | jq -r --arg cid "$network" '.[] | select(.chain_id == $cid) | .network_name' | head -1)
+            echo "Resolved chain_id $network → $slug ($name)" >&2
+            network="$slug"
+            resolved=true
+        else
+            echo "Error: No network found with chain_id $network." >&2
+            echo "Run 'gw list' to see all options." >&2
+            return 1
+        fi
+    fi
+
+    # Build the URL
+    local url
+    if [[ "$local_flag" == "--local" ]]; then
+        url="http://localhost:4949/$GATEWAY_KEY/$network"
+    else
+        url="https://$network.gateway.tenderly.co/$GATEWAY_KEY"
+    fi
+
+    # If we already resolved from chain_id, slug is known valid — skip validation
+    if [[ "$resolved" == true ]]; then
+        echo "$url"
+        return
+    fi
+
+    # Validate slug against API
+    _gw_fetch
+    if [[ -z "$response" ]]; then
+        # Can't validate, assume valid
+        echo "$url"
+        return
+    fi
+
+    local match
+    match=$(echo "$response" | jq -r --arg net "$network" '
+        .[] | select(.network_slugs.node_rpc_slug == $net) | .network_slugs.node_rpc_slug
+    ')
+
+    if [[ -n "$match" ]]; then
+        echo "$url"
+        return
+    fi
+
+    # Slug not recognized — print suggestions to stderr and fail
+    echo "Error: '$network' is not a recognized network slug." >&2
+
+    local suggestions
+    suggestions=$(echo "$response" | jq -r --arg net "$network" --arg key "$GATEWAY_KEY" --arg local "$local_flag" '
+        [.[]
+         | select(.network_slugs.node_rpc_slug != "")
+         | select(.network_slugs.node_rpc_slug | contains($net))
+        ]
+        | sort_by(.network_slugs.node_rpc_slug)
+        | .[]
+        | if $local == "--local" then
+            "  http://localhost:4949/\($key)/\(.network_slugs.node_rpc_slug)  (\(.network_name))"
+          else
+            "  https://\(.network_slugs.node_rpc_slug).gateway.tenderly.co/\($key)  (\(.network_name))"
+          end
+    ')
+
+    if [[ -n "$suggestions" ]]; then
+        echo "Did you mean:" >&2
+        echo "$suggestions" >&2
+    else
+        suggestions=$(echo "$response" | jq -r --arg net "$network" --arg key "$GATEWAY_KEY" --arg local "$local_flag" '
+            [.[]
+             | select(.network_slugs.node_rpc_slug != "")
+             | select(($net | contains(.network_slugs.node_rpc_slug)) or (.network_name | ascii_downcase | contains($net | ascii_downcase)))
+            ]
+            | sort_by(.network_slugs.node_rpc_slug)
+            | .[]
+            | if $local == "--local" then
+                "  http://localhost:4949/\($key)/\(.network_slugs.node_rpc_slug)  (\(.network_name))"
+              else
+                "  https://\(.network_slugs.node_rpc_slug).gateway.tenderly.co/\($key)  (\(.network_name))"
+              end
+        ')
+        if [[ -n "$suggestions" ]]; then
+            echo "Did you mean:" >&2
+            echo "$suggestions" >&2
+        else
+            echo "No similar networks found. Run 'gw list' to see all options." >&2
+        fi
+    fi
+
+    return 1
+}
+
+function mktdly {
+    cwd=$(pwd)
+    tdlycore
+    cb=$(gb.c)
+    gb.s.m
+    make tdly CGO_LDFLAGS="-Wl,-no_compact_unwind"
+    gco $cb
+    cd $cwd
+}

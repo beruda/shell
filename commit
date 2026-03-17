@@ -1,0 +1,157 @@
+#!/bin/zsh
+
+alias golint="golangci-lint -c .golangci.yml run ./..."
+
+# Semantic git commit helper
+# Usage:
+#   commit <type> [scope] [message] [-b]
+#
+# Examples:
+#   commit feat                     -> "feat: new feature :ship:"
+#   commit fix auth                 -> "fix: auth"
+#   commit feat auth "add login"    -> "feat(auth): add login"
+#   commit feat auth "add login" -b -> "feat(auth)!: add login"
+#
+# Types:
+#   lint     - Fix linter errors
+#   refactor - Code refactoring (alias: iter)
+#   feat     - New features (alias: ship)
+#   chore    - Grunt work
+#   fix      - Bug fixes
+#   test     - Tests
+#   docs     - Documentation
+#   build    - Build system changes
+#   ci       - CI configuration
+#   perf     - Performance improvements
+#   style    - Code style changes
+#   revert   - Revert changes
+#   deps     - Dependency updates
+#
+# Options:
+#   -b       - Mark as breaking change (adds ! before :)
+function commit() {
+    if [[ "$PWD" != "$TENDERLY_CORE"* ]]; then
+        echo "Error: commit can only be used within the tenderly-core directory"
+        return 1
+    fi
+
+    local type=$1
+    local scope=$2
+    local message=$3
+    local breaking=false
+    local default_messages=(
+        "fix linter errors"
+        "iterating" 
+        "new feature :ship:"
+        "grunt work"
+        "bug fixes"
+        "adding or fixing tests"
+        "adding or fixing documentation"
+        "changes affecting build system"
+        "changes to CI configuration"
+        "performance improvements"
+        "code style changes"
+        "reverting changes"
+        "dependency updates"
+    )
+    local default_message=""
+
+    if [[ "$1" == "help" || "$1" == "" ]]; then
+        echo "Usage: commit <type> [scope] [message] [-b]"
+        echo "Types:"
+        echo "  help     - Show this help message"
+        echo "  lint     - Fix linter errors"
+        echo "  refactor - Code refactoring (alias: iter)"
+        echo "  feat     - New features (alias: ship)"
+        echo "  chore    - Grunt work"
+        echo "  fix      - Bug fixes"
+        echo "  test     - Tests"
+        echo "  docs     - Documentation"
+        echo "  build    - Build system changes"
+        echo "  ci       - CI configuration"
+        echo "  perf     - Performance improvements"
+        echo "  style    - Code style changes"
+        echo "  revert   - Revert changes"
+        echo "  deps     - Dependency updates"
+        echo "Options:"
+        echo "  -b       - Mark as breaking change (adds ! before :)"
+        echo "Examples:"
+        echo '  commit feat                     -> "feat: new feature :ship:"'
+        echo '  commit fix auth                 -> "fix: auth"'
+        echo '  commit feat auth "add login"    -> "feat(auth): add login"'
+        echo '  commit feat auth "add login" -b -> "feat(auth)!: add login"'
+        echo "Aliases:"
+        echo "  <type>   - commit <type>"
+        echo "  iter     - commit refactor"
+        echo "  ship     - commit feat"
+        return 0
+    fi
+
+    # Parse breaking flag first
+    for arg in "$@"; do
+        if [[ "$arg" == "-b" ]]; then
+            breaking=true
+            # Remove -b from arguments
+            set -- "${@/$arg}"
+            break
+        fi
+    done
+
+    # Reassign positional parameters after flag parsing
+    type=$1
+    scope=$2
+    message=$3
+
+    # Parse types
+    case $type in
+        lint) default_message=${default_messages[1]} ;;
+        refactor|iter) default_message=${default_messages[2]} ;;
+        feat|ship) default_message=${default_messages[3]} ;;
+        chore) default_message=${default_messages[4]} ;;
+        fix) default_message=${default_messages[5]} ;;
+        test) default_message=${default_messages[6]} ;;
+        docs) default_message=${default_messages[7]} ;;
+        build) default_message=${default_messages[8]} ;;
+        ci) default_message=${default_messages[9]} ;;
+        perf) default_message=${default_messages[10]} ;;
+        style) default_message=${default_messages[11]} ;;
+        revert) default_message=${default_messages[12]} ;;
+        deps) default_message=${default_messages[13]} ;;
+        *) echo "Invalid type" && return 1 ;;
+    esac
+
+    local commit_message=""
+    if [ -z "$scope" ]; then
+        commit_message="$type: $default_message"
+    elif [ -z "$message" ]; then
+        if $breaking; then
+            commit_message="$type!: $scope"
+        else
+            commit_message="$type: $scope"
+        fi
+    else
+        if $breaking; then
+            commit_message="$type($scope)!: $message"
+        else
+            commit_message="$type($scope): $message"
+        fi
+    fi
+
+    make format && git add --all && git commit -m"$commit_message" && git push || gp.suc
+}
+
+alias lint='commit lint'
+alias iter='commit refactor'
+alias refactor='commit refactor'
+alias ship='commit feat'
+alias feat='commit feat'
+alias chore='commit chore'
+alias fix='commit fix'
+alias test='commit test'
+alias docs='commit docs'
+alias build='commit build'
+alias ci='commit ci'
+alias perf='commit perf'
+alias style='commit style'
+alias revert='commit revert'
+alias deps='commit deps'

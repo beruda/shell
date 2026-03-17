@@ -1,0 +1,141 @@
+#!/bin/zsh
+
+function network() {
+    local input="$1"
+
+    # Check if input is a number using regex
+    if [[ "$input" =~ ^[0-9]+$ ]]; then
+        # If input is a number, match against the `id` field
+        curl -s 'https://api.tenderly.co/api/v1/explorer/networks' | jq --arg search "$input" \
+            '.[] | select(.id == $search) | {id, name, slug}'
+    else    
+        # Otherwise, match case-insensitively against the `name` field (must start with the input)
+        curl -s 'https://api.tenderly.co/api/v1/explorer/networks' | jq --arg search "$input" \
+            '.[] | select(.slug | test("^" + $search; "i")) | {id, name, slug}'
+    fi
+}
+
+function find-block() {
+    local network="$1"
+    local target_timestamp="$2"
+    local approx_block_time_s="$3"
+
+    if [[ -z "$network" || -z "$target_timestamp" || -z "$approx_block_time_s" ]]; then
+        echo "Usage: find-block <network> <target_unix_timestamp_seconds> <approx_block_time_seconds>" >&2
+        return 1
+    fi
+
+    local rpc_url=""
+    if [[ -n "$GATEWAY_KEY" ]]; then
+        rpc_url="https://${network}.gateway.tenderly.co/${GATEWAY_KEY}"
+    else
+        rpc_url="https://${network}.gateway.tenderly.co/"
+    fi
+
+    local latest_block
+    latest_block="$(cast block-number --rpc-url "$rpc_url" 2>/dev/null)" || return 1
+
+    local now_s
+    now_s="$(date +%s)"
+
+    local approx_delta_blocks=$(((now_s - target_timestamp) / approx_block_time_s))
+    if (( approx_delta_blocks < 0 )); then
+        approx_delta_blocks=0
+    fi
+
+    local approx_block=$((latest_block - approx_delta_blocks))
+    if (( approx_block < 0 )); then
+        approx_block=0
+    fi
+
+    # Try a bounded window around the approximation first (fewer RPC calls),
+    # then fall back to searching the full chain range.
+    local window=50000
+    local low=$(( approx_block - window ))
+    local high=$(( approx_block + window ))
+    if (( low < 0 )); then low=0; fi
+    if (( high > latest_block )); then high=$latest_block; fi
+
+    if (( low == 0 )); then low=1; fi
+
+    local found=""
+    found="$(binary-search-block "$network" "$target_timestamp" "$low" "$high" 2>/dev/null)" || true
+    if [[ -z "$found" ]]; then
+        found="$(binary-search-block "$network" "$target_timestamp" 1 "$latest_block")" || return 1
+    fi
+
+    echo "$found"
+}
+
+function binary-search-block() {
+    local network="$1"
+    local target_timestamp="$2"
+    local low="$3"
+    local high="$4"
+
+    if [[ -z "$network" || -z "$target_timestamp" || -z "$low" || -z "$high" ]]; then
+        echo "Usage: binary-search-block <network> <target_unix_timestamp_seconds> <low_block> <high_block>" >&2
+        return 1
+    fi
+
+    local rpc_url=""
+    if [[ -n "$GATEWAY_KEY" ]]; then
+        rpc_url="https://${network}.gateway.tenderly.co/${GATEWAY_KEY}"
+    else
+        rpc_url="https://${network}.gateway.tenderly.co/"
+    fi
+
+    # Returns the timestamp (seconds) for a block number.
+    _block_timestamp() {
+        local -i bn=$1
+        local bn_hex
+        bn_hex="$(printf '0x%x' "$bn")"
+
+        local ts_hex
+        ts_hex="$(cast rpc --rpc-url "$rpc_url" eth_getBlockByNumber "$bn_hex" false 2>/dev/null | jq -r '.result.timestamp // .timestamp // empty')" || return 1
+        [[ -z "$ts_hex" || "$ts_hex" == "null" ]] && return 1
+
+        printf "%d" $((16#${ts_hex#0x}))
+    }
+
+    local -i lo=$low
+    local -i hi=$high
+    if (( lo < 1 )); then lo=1; fi
+
+    local -i ts_lo ts_hi
+    # Some RPCs (including Tenderly) may return null for very early blocks (e.g. 0x0).
+    # Nudge boundaries inward until we get valid timestamps.
+    while (( lo < hi )); do
+        ts_lo="$(_block_timestamp "$lo")" && break
+        lo=$((lo + 1))
+    done
+    while (( hi > lo )); do
+        ts_hi="$(_block_timestamp "$hi")" && break
+        hi=$((hi - 1))
+    done
+    if (( lo >= hi )); then
+        return 1
+    fi
+
+    # Target must be inside the candidate range for this search.
+    if (( target_timestamp < ts_lo || target_timestamp > ts_hi )); then
+        return 2
+    fi
+
+    # Find the greatest block with timestamp <= target.
+    while (( lo + 1 < hi )); do
+        local -i mid=$(((lo + hi) / 2))
+        local -i ts_mid
+        ts_mid="$(_block_timestamp "$mid")" || return 1
+
+        if (( ts_mid <= target_timestamp )); then
+            lo=$mid
+            ts_lo=$ts_mid
+        else
+            hi=$mid
+            ts_hi=$ts_mid
+        fi
+    done
+
+    echo "$lo"
+}

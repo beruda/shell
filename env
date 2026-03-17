@@ -1,0 +1,10 @@
+#!/bin/zsh
+
+# Load environment variables from .env
+_ZRC_DIR="${0:a:h}"
+if [[ -f "$_ZRC_DIR/.env" ]]; then
+    set -a
+    source "$_ZRC_DIR/.env"
+    set +a
+fi
+unset _ZRC_DIR

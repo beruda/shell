@@ -1,0 +1,74 @@
+#!/bin/zsh
+
+function mkcd() {
+    mkdir $1
+    cd $1
+}
+
+function close-port() {
+    sudo kill -9 $(sudo lsof -t -sTCP:LISTEN -i:$1)
+}
+
+function secret() {
+  gcloud secrets versions access latest --secret=$1
+  echo
+}
+
+# Node commands
+alias mainnet="kubectl port-forward node-ethereum-mainnet-0 8545 --namespace projectnode"
+alias hoodi="kubectl port-forward node-hoodi-0 8545 --namespace projectnode"
+alias sepolia="kubectl port-forward node-sepolia-0 8545 --namespace projectnode"
+alias polygon="kubectl port-forward node-polygon-0 8545 --namespace projectnode"
+alias polygon-historical="kubectl port-forward erigon-polygon-0 8546 --namespace projectnode"
+alias polygon-amoy="kubectl port-forward node-polygon-amoy-0 8545 --namespace projectnode"
+alias boba-mainnet-historical="kubectl port-forward node-boba-mainnet-0 8545 --namespace projectnode"
+alias boba-mainnet="kubectl port-forward erigon-boba-mainnet-0 8545 --namespace projectnode"
+alias optimism="kubectl port-forward reth-optimism-mainnet-ssd-archive.europe-west3.internal.tenderly.co:8545 8545 --namespace projectnode"
+alias optimism-sepolia="kubectl port-forward node-optimism-sepolia-0 8545 --namespace projectnode"
+alias bnb="kubectl port-forward node-boba-bsc-0 8545 --namespace projectnode"
+alias bnb-testnet="kubectl port-forward node-boba-bsc-testnet-0 8545 --namespace projectnode"
+alias base="kubectl port-forward node-base-mainnet-0 8545 --namespace projectnode"
+alias base-sepolia="kubectl port-forward node-base-sepolia-0 8545 --namespace projectnode"
+alias arbitrum="kubectl port-forward node-arbitrum-full-0 8545 --namespace projectnode"
+alias arbitrum-nova="kubectl port-forward node-arbitrum-nova-0 8545 --namespace projectnode"
+alias arbitrum-sepolia="kubectl port-forward node-arbitrum-sepolia-0 8545 --namespace projectnode"
+alias holesky="kubectl port-forward reth-holesky-0 8545 --namespace projectnode"
+alias fraxtal="kubectl port-forward node-fraxtal-mainnet-0 8545 --namespace projectnode"
+alias fraxtal-holesky="kubectl port-forward node-fraxtal-holesky-0 8545 --namespace projectnode"
+alias boba-sepolia="kubectl port-forward node-boba-sepolia-0 8545 --namespace projectnode"
+alias apechain="kubectl port-forward node-apechain-0 8545 --namespace projectnode"
+alias avalanche="kubectl port-forward node-avalanche-0 9650 --namespace projectnode"
+alias soneium="kubectl port-forward node-soneium-0 8545 --namespace projectnode"
+alias soneium-minato="kubectl port-forward node-soneium-minato-0 8545 --namespace projectnode"
+alias bob="kubectl port-forward node-bob-0 8545 --namespace projectnode"
+alias zksync="kubectl port-forward node-zksync-0 3060 --namespace projectnode"
+alias zksync-sepolia="kubectl port-forward node-zksync-testnet-0 3060 --namespace projectnode"
+alias morph="kubectl port-forward node-morph-0 8545 --namespace projectnode"
+alias metis-andromeda="kubectl port-forward node-metis-andromeda-0 8545 --namespace projectnode"
+alias lens="kubectl port-forward node-lens-mainnet-0 3060 --namespace projectnode"
+alias lens-sepolia="kubectl port-forward node-lens-testnet-0 3060 --namespace projectnode"
+alias ronin="kubectl port-forward node-ronin-0 8545 --namespace projectnode"
+alias mantle="kubectl port-forward node-mantle-0 8545 --namespace projectnode"
+alias berachain="kubectl port-forward reth-berachain-mainnet-0 8545 --namespace projectnode"
+alias cfx-espace="kubectl port-forward node-conflux-0 8545 --namespace projectnode"
+alias gnosis="kubectl port-forward node-gnosis-0 8545 --namespace projectnode"
+alias celo="kubectl port-forward node-celo-0 8545 --namespace projectnode"
+
+# k8s commands
+alias k8s-ctx-eu="kubectl config use-context gke_tenderly-project_europe-west3-a_production-eu-west3"
+alias k8s-ctx-use="kubectl config use-context gke_tenderly-project_us-east4_production-us-east4"
+alias k8s-ctx-usw="kubectl config use-context gke_tenderly-project_us-west1_production-us-west1"
+
+alias k8s-ctx="kubectl config current-context"
+
+function k8s-scale() {
+  region=$1
+  deployment=$2
+  replicas=$3
+
+  ctx=$(k8s-ctx)
+
+  eval k8s-ctx-$region
+  kubectl scale deployment $deployment --replicas=$replicas -n tenderly
+  kubectl config use-context $ctx
+}

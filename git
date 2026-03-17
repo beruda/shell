@@ -1,0 +1,77 @@
+#!/bin/zsh
+
+function git-merge-master-into-current {
+    local cbranch=$(git branch --show-current)
+    git checkout master && git pull && git checkout $cbranch && git merge master
+}
+
+function git-push-set-upstream-current {
+    local cbranch=$(git branch --show-current)
+    git push --set-upstream origin $cbranch
+}
+
+ALIAS_DEPTH=25
+ALIAS_DEPTH_COLOR_MAP=(
+    "\e[32m"
+    "\e[33m"
+    "\e[34m"
+    "\e[35m"
+    "\e[36m"
+)
+NO_COLOR="\e[0m"
+GIT_ALIASES="\e[31mg                          ~ git alias ~\e[0m\n  ${ALIAS_DEPTH_COLOR_MAP[1]}g.help${NO_COLOR} \e[30m.................\e[0m \e[3mprint all aliases\e[0m"
+
+function make_indent {
+    local char=$1
+    local depth=$2
+    local indent=""
+    local i=0
+    while [ $i -lt $depth ]; do
+        indent="$indent$char"
+        i=$((i+1))
+    done
+    echo $indent
+}
+
+function verbose_alias {
+    local depth=$1
+    local name=${2%%=*} expansion=${2#*=}
+    alias $name="$expansion"
+    local indent=$(make_indent " " $((depth*2)))
+    local postpend=$(make_indent "\e[30m.\e[0m" $((ALIAS_DEPTH-depth*2-${#name})))
+    GIT_ALIASES="$GIT_ALIASES\n$indent${ALIAS_DEPTH_COLOR_MAP[$((depth+1))]}$name${NO_COLOR} $postpend $expansion"
+}
+
+function verbose_alias_no_command {
+    local depth=$1
+    local name=$2
+    local indent=$(make_indent " " $((depth*2)))
+    GIT_ALIASES="$GIT_ALIASES\n$indent${ALIAS_DEPTH_COLOR_MAP[$((depth+1))]}$name${NO_COLOR}"
+}
+
+function g.help {
+  echo -e "$GIT_ALIASES"
+}
+
+# verbose_alias_no_command 0 g
+verbose_alias 1 g.d="git diff"
+verbose_alias 1 g.s="git status"
+verbose_alias 1 g.l="git log --graph --pretty=format:'%C(yellow)%h%C(cyan)%d%Creset %s %C(white)- %an, %ar%Creset'"
+
+verbose_alias 0 gp="git push"
+verbose_alias 1 gp.suc="git-push-set-upstream-current"
+
+verbose_alias 0 gco="git checkout"
+verbose_alias 0 gaa="git add -A && git commit --amend --no-edit"
+verbose_alias_no_command 0 gb
+verbose_alias 1 gb.n="gb.s.m && git checkout -b"
+verbose_alias 1 gb.c="git branch --show-current"
+verbose_alias 1 gb.s="git fetch origin master:master && git merge master"
+verbose_alias 2 gb.s.m="git checkout master && git pull"
+verbose_alias 2 gb.s.c="git pull"
+verbose_alias 1 gb.d="git branch -D"
+verbose_alias 1 gb.l="git branch --list"
+
+verbose_alias 0 gs="git stash"
+verbose_alias 1 gs.d="git stash && git stash drop"
+verbose_alias 1 gs.p="git stash pop"

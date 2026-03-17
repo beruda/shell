@@ -1,0 +1,138 @@
+#!/bin/zsh
+
+function mirko() {
+    printf "\x1B[35m$(cast rpc --rpc-url $(gw mainnet) extension_mirko | jq -r)\n"
+}
+
+alias latex-font-sizes='echo "tiny\nscriptsize\nfootnotesize\nsmall\nnormalsize\nlarge\nLarge\nLARGE\nhuge\nHuge"'
+alias pblade='cd /Users/beruda/Documents/P.blade'
+alias tdlycore='cd /Users/beruda/Documents/tenderly.nosync/tenderly-core'
+
+function pb() {
+    local COMMIT_CHAPTER=$1
+    local COMMIT_TYPE=$2
+    local COMMIT_MESSAGE=$3
+    
+    # Handle help subcommand
+    if [[ "$COMMIT_CHAPTER" == "help" ]]; then
+        echo "Usage: pb <COMMIT_CHAPTER> <COMMIT_TYPE> <COMMIT_MESSAGE>"
+        echo ""
+        echo "COMMIT_CHAPTER:"
+        echo "  - 'repo'    : Commit all changes in the repository"
+        echo "  - 'main'    : Commit changes to main.tex"
+        echo "  - <chapter> : Commit changes to a specific chapter from ./chapter/"
+        echo ""
+        echo "COMMIT_TYPE:"
+        echo "  - pretty   :lipstick:    : Pretty formatting/formatting changes"
+        echo "  - clean    :broom:       : Cleaning up code/text"
+        echo "  - iterate  :hammer_and_wrench: : Iterating on existing content"
+        echo "  - new      :heavy_plus_sign:   : Adding new content"
+        echo "  - chapter  :bookmark:    : Chapter-specific changes (no message needed)"
+        echo "  - latex    :gear:        : LaTeX/configuration changes"
+        echo ""
+        echo "COMMIT_MESSAGE:"
+        echo "  - Description of the changes (not required for 'chapter' type)"
+        echo ""
+        echo "Examples:"
+        echo "  pb repo pretty 'format code'"
+        echo "  pb main new 'add introduction section'"
+        echo "  pb chapter1 iterate 'refine prose'"
+        echo "  pb intro chapter"
+        return 0
+    fi
+    
+    # Check if we're in the P.blade directory
+    local PBLADE_DIR="/Users/beruda/Documents/P.blade"
+    if [[ "$PWD" != "$PBLADE_DIR"* ]]; then
+        echo "Error: pb can only be used within the P.blade directory"
+        return 1
+    fi
+    
+    # Validate COMMIT_TYPE
+    local VALID_TYPES=("pretty" "clean" "iterate" "new" "chapter" "latex")
+    local valid_type=false
+    for type in "${VALID_TYPES[@]}"; do
+        if [[ "$COMMIT_TYPE" == "$type" ]]; then
+            valid_type=true
+            break
+        fi
+    done
+    
+    if [[ "$valid_type" == false ]]; then
+        echo "Error: COMMIT_TYPE must be one of: ${VALID_TYPES[@]}"
+        return 1
+    fi
+    
+    # Validate COMMIT_CHAPTER and find actual filename
+    local valid_chapter=false
+    local actual_chapter_name=""
+    
+    # Check for 'repo' or 'main'
+    if [[ "$COMMIT_CHAPTER" == "repo" ]] || [[ "$COMMIT_CHAPTER" == "main" ]]; then
+        valid_chapter=true
+        actual_chapter_name="$COMMIT_CHAPTER"
+    else
+        # Check against chapter files in ./chapter/
+        if [[ -d "./chapter" ]]; then
+            for file in ./chapter/*.tex; do
+                if [[ -f "$file" ]]; then
+                    local basename=$(basename "$file" .tex)
+                    # Compare case-insensitively
+                    if [[ "${(L)COMMIT_CHAPTER}" == "${(L)basename}" ]]; then
+                        valid_chapter=true
+                        actual_chapter_name="$basename"
+                        break
+                    fi
+                fi
+            done
+        fi
+    fi
+    
+    if [[ "$valid_chapter" == false ]]; then
+        echo "Error: COMMIT_CHAPTER must be 'repo', 'main', or a valid chapter name from ./chapter/"
+        return 1
+    fi
+    
+    # Capitalize COMMIT_CHAPTER (use actual_chapter_name for consistency)
+    local COMMIT_CHAPTER_CAPITALIZED=$(echo "$COMMIT_CHAPTER" | tr '[:lower:]' '[:upper:]')
+    
+    # Map COMMIT_TYPE to emoji
+    local COMMIT_EMOJI=""
+    case "$COMMIT_TYPE" in
+        pretty)
+            COMMIT_EMOJI=":lipstick:"
+            ;;
+        clean)
+            COMMIT_EMOJI=":broom:"
+            ;;
+        iterate)
+            COMMIT_EMOJI=":hammer_and_wrench:"
+            ;;
+        new)
+            COMMIT_EMOJI=":heavy_plus_sign:"
+            ;;
+        chapter)
+            COMMIT_EMOJI=":bookmark:"
+            ;;
+        latex)
+            COMMIT_EMOJI=":gear:"
+            ;;
+    esac
+    
+    # Generate commit message
+    local COMMIT_MESSAGE_FULL=""
+    if [[ "$COMMIT_TYPE" == "chapter" ]]; then
+        COMMIT_MESSAGE_FULL="$COMMIT_CHAPTER_CAPITALIZED $COMMIT_EMOJI"
+    else
+        COMMIT_MESSAGE_FULL="$COMMIT_CHAPTER_CAPITALIZED: $COMMIT_MESSAGE $COMMIT_EMOJI"
+    fi
+    
+    # Run git add and commit
+    if [[ "$COMMIT_CHAPTER" == "repo" ]]; then
+        git add -A && git commit -m "$COMMIT_MESSAGE_FULL"
+    elif [[ "$COMMIT_CHAPTER" == "main" ]]; then
+        git add "main.tex" && git commit -m "$COMMIT_MESSAGE_FULL"
+    else
+        git add "chapter/$actual_chapter_name.tex" && git commit -m "$COMMIT_MESSAGE_FULL"
+    fi
+}
