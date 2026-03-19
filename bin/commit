@@ -153,10 +153,15 @@ function commit() {
         fi
     done
     if (( ${#extra_files[@]} )); then
+        echo "==> restoring ${#extra_files[@]} file(s) formatted outside this PR:"
+        printf "    %s\n" "${extra_files[@]}"
         git restore "${extra_files[@]}"
     fi
 
-    git add --all && git commit -m"$commit_message" && git push --no-verify || gp.suc --no-verify
+    echo "==> committing: $commit_message"
+    git add --all && git commit -m"$commit_message" || return 1
+    echo "==> pushing..."
+    git push --no-verify || gp.suc --no-verify
 }
 
 alias lint='commit lint'
