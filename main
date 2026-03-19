@@ -1,0 +1,16 @@
+#!/bin/zsh
+
+SHELL_DIR="${0:A:h}"
+
+# load environment variables
+source "$SHELL_DIR/env"
+
+# load all bin scripts
+for file in "$SHELL_DIR"/bin/*; do
+    [[ -f "$file" ]] && source "$file"
+done
+
+# load all personal scripts
+for file in "$SHELL_DIR"/bin/personal/*; do
+    [[ -f "$file" ]] && source "$file"
+done

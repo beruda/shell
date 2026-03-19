@@ -1,15 +1,20 @@
-# zsh_run_commands
+# shell
 
-Personal zsh configuration files sourced by `~/.zshrc`. Each file is a standalone module organized by topic.
+Personal zsh configuration. Entry point is `main`, which loads `env` and all scripts under `bin/`.
 
 ## Structure
 
-- `commit` - Semantic git commit helper for tenderly-core (conventional commits with emoji). Aliases: `lint`, `iter`, `ship`, `feat`, `chore`, `fix`, etc.
-- `dev` - Dev utilities: `mkcd`, `close-port`, `secret` (gcloud), kubectl port-forwards for blockchain nodes, k8s context switching and scaling.
-- `git` - Git aliases with a self-documenting `g.help` system using `verbose_alias`.
-- `network` - Tenderly network lookup and block binary-search utilities (`network`, `find-block`, `binary-search-block`).
-- `personal` - Personal aliases (`pblade`, `tdlycore`), P.blade commit helper (`pb`), `mirko` easter egg.
-- `tenderly` - Tenderly gateway helper (`gw`) with network resolution, slug validation, and local mode. Also `mktdly` build helper.
+- `main` - Entry point: sources `env`, then all `bin/*` and `bin/personal/*` scripts.
+- `env` - Loads `.env` secrets into the shell environment.
+- `bin/commit` - Semantic git commit helper for tenderly-core (conventional commits with emoji). Aliases: `lint`, `iter`, `ship`, `feat`, `chore`, `fix`, etc.
+- `bin/dev` - Dev utilities: `mkcd`, `close-port`, `secret` (gcloud), kubectl port-forwards for blockchain nodes, k8s context switching and scaling.
+- `bin/git` - Git aliases with a self-documenting `g.help` system using `verbose_alias`.
+- `bin/network` - Tenderly network lookup and block binary-search utilities (`network`, `find-block`, `binary-search-block`).
+- `bin/tenderly` - Tenderly gateway helper (`gw`) with network resolution, slug validation, and local mode. Also `mktdly` build helper.
+- `bin/personal/fun` - `mirko` easter egg.
+- `bin/personal/pb` - P.blade commit helper (git-ignored).
+
+Note: `bin/personal/*` is git-ignored except `bin/personal/fun`.
 
 ## Environment Variables
 

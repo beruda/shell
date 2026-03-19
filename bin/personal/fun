@@ -1,0 +1,6 @@
+#!/bin/zsh
+
+function mirko() {
+    printf "\x1B[35m$(cast rpc --rpc-url $(gw mainnet) extension_mirko | jq -r)\n"
+}
+

@@ -2,6 +2,8 @@
 
 # Environment variables are loaded from .env by the env file
 
+alias tdlycore='cd /Users/beruda/Documents/tenderly.nosync/tenderly-core'
+
 function gw() {
     local network=$1
     local local_flag=$2
