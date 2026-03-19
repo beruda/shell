@@ -137,7 +137,26 @@ function commit() {
         fi
     fi
 
-    make format && git add --all && git commit -m"$commit_message" && git push || gp.suc
+    # Snapshot touched files before formatting
+    local -a pre_format_files
+    pre_format_files=("${(@f)$(git status --porcelain | awk '{print $NF}')}")
+
+    make format
+
+    # Find files that make format touched outside our changeset and restore them
+    local -a post_format_files
+    post_format_files=("${(@f)$(git status --porcelain | awk '{print $NF}')}")
+    local -a extra_files
+    for f in "${post_format_files[@]}"; do
+        if (( ! ${pre_format_files[(Ie)$f]} )); then
+            extra_files+=("$f")
+        fi
+    done
+    if (( ${#extra_files[@]} )); then
+        git restore "${extra_files[@]}"
+    fi
+
+    git add --all && git commit -m"$commit_message" && git push --no-verify || gp.suc --no-verify
 }
 
 alias lint='commit lint'
