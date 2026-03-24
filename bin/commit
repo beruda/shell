@@ -161,7 +161,7 @@ function commit() {
     echo "==> committing: $commit_message"
     git add --all && git commit -m"$commit_message" || return 1
     echo "==> pushing..."
-    git push --no-verify || gp.suc --no-verify
+    git push --no-verify || git-push-set-upstream-current --no-verify
 }
 
 alias lint='commit lint'
