@@ -1,10 +1,5 @@
 #!/bin/zsh
 
-function git-merge-master-into-current {
-    local cbranch=$(git branch --show-current)
-    git checkout master && git pull && git checkout $cbranch && git merge master
-}
-
 function git-push-set-upstream-current {
     local cbranch=$(git branch --show-current)
     local push_command="git push --set-upstream origin $cbranch"
@@ -16,6 +11,7 @@ function git-push-set-upstream-current {
     eval $push_command
 }
 
+# ─── shared help-tree infra ────────────────────────────────────────────────
 ALIAS_DEPTH=25
 ALIAS_DEPTH_COLOR_MAP=(
     "\e[32m"
@@ -25,7 +21,8 @@ ALIAS_DEPTH_COLOR_MAP=(
     "\e[36m"
 )
 NO_COLOR="\e[0m"
-GIT_ALIASES="\e[31mg                          ~ git alias ~\e[0m\n  ${ALIAS_DEPTH_COLOR_MAP[1]}g.help${NO_COLOR} \e[30m.................\e[0m \e[3mprint all aliases\e[0m"
+
+GHELP_ALIASES="\e[31mg                          ~ git alias ~\e[0m\n  ${ALIAS_DEPTH_COLOR_MAP[1]}ghelp${NO_COLOR} \e[30m..................\e[0m \e[3mprint all aliases\e[0m"
 
 function make_indent {
     local char=$1
@@ -39,45 +36,172 @@ function make_indent {
     echo $indent
 }
 
+# verbose_alias <depth> name=expansion
+# Defines the alias AND appends a colored line to GHELP_ALIASES.
 function verbose_alias {
     local depth=$1
     local name=${2%%=*} expansion=${2#*=}
     alias $name="$expansion"
     local indent=$(make_indent " " $((depth*2)))
     local postpend=$(make_indent "\e[30m.\e[0m" $((ALIAS_DEPTH-depth*2-${#name})))
-    GIT_ALIASES="$GIT_ALIASES\n$indent${ALIAS_DEPTH_COLOR_MAP[$((depth+1))]}$name${NO_COLOR} $postpend $expansion"
+    GHELP_ALIASES="$GHELP_ALIASES\n$indent${ALIAS_DEPTH_COLOR_MAP[$((depth+1))]}$name${NO_COLOR} $postpend $expansion"
 }
 
 function verbose_alias_no_command {
     local depth=$1
     local name=$2
     local indent=$(make_indent " " $((depth*2)))
-    GIT_ALIASES="$GIT_ALIASES\n$indent${ALIAS_DEPTH_COLOR_MAP[$((depth+1))]}$name${NO_COLOR}"
+    GHELP_ALIASES="$GHELP_ALIASES\n$indent${ALIAS_DEPTH_COLOR_MAP[$((depth+1))]}$name${NO_COLOR}"
 }
 
+# ─── new help (ghelp) ──────────────────────────────────────────────────────
+function ghelp {
+  echo -e "$GHELP_ALIASES"
+}
+
+# ─── deprecated help (g.help) ──────────────────────────────────────────────
+# Kept until cutoff so muscle memory doesn't 404. Body is a static list of the
+# old → new mapping so users can find the new name fast.
 function g.help {
-  echo -e "$GIT_ALIASES"
+  echo -e "\e[33m╔════════════════════════════════════════════════════════════════╗\e[0m"
+  echo -e "\e[33m║\e[0m \e[1;33mTHESE ALIASES ARE DEPRECATED — hard-removed on 2026-05-30\e[0m      \e[33m║\e[0m"
+  echo -e "\e[33m║\e[0m Use \e[1mghelp\e[0m for the new tree.                                    \e[33m║\e[0m"
+  echo -e "\e[33m║\e[0m Breaking renames: \`gs\` is now \`git status\` (was stash);        \e[33m║\e[0m"
+  echo -e "\e[33m║\e[0m                   \`gaa\` is now \`git add -A\` (was amend).       \e[33m║\e[0m"
+  echo -e "\e[33m╚════════════════════════════════════════════════════════════════╝\e[0m"
+  cat <<'MAP'
+  old        →  new
+  ---------     -----------------------
+  g.s        →  gs            (git status)
+  g.d        →  gd
+  g.l        →  gl
+  gp.suc     →  gpu
+  gb.c       →  gbc
+  gb.l       →  gbl
+  gb.d       →  git branch -D (no shorter alias — type it)
+  gb.s       →  gbs           (now: git town sync)
+  gb.s.m     →  gbs           (now: git town sync)
+  gb.s.c     →  git pull
+  gb.n       →  ghak          (now: git town hack)
+  gs.p       →  gstp
+  gs.d       →  gstd
+  gs (stash) →  gst           (gs is now status — breaking)
+  gaa (amend)→  gac           (gaa is now add -A — breaking)
+MAP
 }
 
-# verbose_alias_no_command 0 g
-verbose_alias 1 g.d="git diff"
-verbose_alias 1 g.s="git status"
-verbose_alias 1 g.l="git log --graph --pretty=format:'%C(yellow)%h%C(cyan)%d%Creset %s %C(white)- %an, %ar%Creset'"
+# ─── new aliases ───────────────────────────────────────────────────────────
 
+# top-level / status / log
+verbose_alias 0 gs="git status"
+verbose_alias 0 gd="git diff"
+verbose_alias 0 gl="git log --graph --pretty=format:'%C(yellow)%h%C(cyan)%d%Creset %s %C(white)- %an, %ar%Creset'"
+
+# add / commit / amend
+verbose_alias 0 ga="git add"
+verbose_alias 1 gaa="git add -A"
+verbose_alias 2 gacm="git add -A && git commit -m"
+verbose_alias 2 gaca="git add -A && git commit --amend --no-edit"
+
+# push
 verbose_alias 0 gp="git push"
-verbose_alias 1 gp.suc="git-push-set-upstream-current"
+verbose_alias 1 gpu="git-push-set-upstream-current"
+verbose_alias 2 gpun="git-push-set-upstream-current --no-verify"
 
+# checkout / switch
 verbose_alias 0 gco="git checkout"
-verbose_alias 0 gaa="git add -A && git commit --amend --no-edit"
-verbose_alias_no_command 0 gb
-verbose_alias 1 gb.n="gb.s.m && git checkout -b"
-verbose_alias 1 gb.c="git branch --show-current"
-verbose_alias 1 gb.s="git fetch origin master:master && git merge master"
-verbose_alias 2 gb.s.m="git checkout master && git pull"
-verbose_alias 2 gb.s.c="git pull"
-verbose_alias 1 gb.d="git branch -D"
-verbose_alias 1 gb.l="git branch --list"
+verbose_alias 0 gsw="git town switch"
 
-verbose_alias 0 gs="git stash"
-verbose_alias 1 gs.d="git stash && git stash drop"
-verbose_alias 1 gs.p="git stash pop"
+# branch
+verbose_alias 0 gb="git branch"
+verbose_alias 1 gbc="git branch --show-current"
+verbose_alias 1 gbl="git branch --list"
+verbose_alias 1 gbs="git town sync"
+verbose_alias 2 gbsa="git town sync --all"
+verbose_alias 2 gbss="git town sync --stack"
+verbose_alias 1 gbd="git town delete"
+
+# git-town workflow (branch lifecycle)
+verbose_alias 0 ghak="git town hack"
+verbose_alias 0 gapp="git town append"
+verbose_alias 0 gpre="git town prepend"
+verbose_alias 0 gpr="git town propose"
+verbose_alias 0 gsh="git town ship"
+
+# stash
+verbose_alias 0 gst="git stash"
+verbose_alias 1 gstp="git stash pop"
+verbose_alias 1 gstd="git stash && git stash drop"
+
+# ─── deprecation forwarding gate ───────────────────────────────────────────
+# Old `.`-separator names forward to the new ones with a yellow stderr warning
+# until G_DEPRECATION_CUTOFF, after which they hard-disappear (command not found).
+G_DEPRECATION_CUTOFF="${G_DEPRECATION_CUTOFF:-2026-05-30}"
+G_TODAY=$(date +%Y-%m-%d)
+
+if [[ "$G_TODAY" < "$G_DEPRECATION_CUTOFF" ]]; then
+    function _g_deprecated {
+        local old=$1 new=$2
+        shift 2
+        print -P "%F{yellow}[deprecated]%f $old → $new — removes $G_DEPRECATION_CUTOFF" >&2
+        # `eval` so $new can be a multi-word command (e.g. "git pull").
+        eval "$new \"\$@\""
+    }
+    function g.s     { _g_deprecated g.s     gs     "$@" }
+    function g.d     { _g_deprecated g.d     gd     "$@" }
+    function g.l     { _g_deprecated g.l     gl     "$@" }
+    function gp.suc  { _g_deprecated gp.suc  gpu    "$@" }
+    function gb.c    { _g_deprecated gb.c    gbc    "$@" }
+    function gb.l    { _g_deprecated gb.l    gbl    "$@" }
+    function gb.d    { _g_deprecated gb.d    "git branch -D" "$@" }
+    function gb.s    { _g_deprecated gb.s    gbs    "$@" }
+    function gb.s.m  { _g_deprecated gb.s.m  gbs    "$@" }
+    function gb.s.c  { _g_deprecated gb.s.c  "git pull" "$@" }
+    function gb.n    { _g_deprecated gb.n    ghak   "$@" }
+    function gs.p    { _g_deprecated gs.p    gstp   "$@" }
+    function gs.d    { _g_deprecated gs.d    gstd   "$@" }
+    # gs (stash) and gaa (add+amend) are intentionally NOT forwarded — the new
+    # bindings replace them. See g.help banner.
+fi
+
+# ─── self-test ─────────────────────────────────────────────────────────────
+function gcheck {
+    local new_aliases=(g.help ghelp gs gd gl ga gaa gac gp gpu gpun gco gsw gb gbc gbl gbs gbsa gbss gbd ghak gapp gpre gpr gsh gst gstp gstd gcheck)
+    local old_aliases=(g.s g.d g.l gp.suc gb.c gb.l gb.d gb.s gb.s.m gb.s.c gb.n gs.p gs.d)
+    local fail=0 a
+    print -P "%F{cyan}== new aliases ==%f"
+    for a in $new_aliases; do
+        if whence -v $a >/dev/null 2>&1; then
+            print -nP "  %F{green}OK%f   "; print -r -- "$a — $(whence -v $a)"
+        else
+            print -P "  %F{red}MISS%f $a (unresolved)"
+            ((fail++))
+        fi
+    done
+    print -P "%F{cyan}== deprecated (forwarding until $G_DEPRECATION_CUTOFF) ==%f"
+    for a in $old_aliases; do
+        if whence -v $a >/dev/null 2>&1; then
+            print -nP "  %F{yellow}DEP%f  "; print -r -- "$a — $(whence -v $a)"
+        else
+            if [[ "$G_TODAY" < "$G_DEPRECATION_CUTOFF" ]]; then
+                print -P "  %F{red}MISS%f $a (should forward, not found)"
+                ((fail++))
+            else
+                print -P "  %F{green}GONE%f $a (cutoff passed — expected)"
+            fi
+        fi
+    done
+    print -P "%F{cyan}== external deps ==%f"
+    if command -v git-town >/dev/null 2>&1; then
+        print -P "  %F{green}OK%f   git-town ($(git-town --version 2>/dev/null | head -1))"
+    else
+        print -P "  %F{red}MISS%f git-town not in PATH"
+        ((fail++))
+    fi
+    if [[ $fail -eq 0 ]]; then
+        print -P "%F{green}OK%f all resolved"
+    else
+        print -P "%F{red}FAIL%f $fail unresolved"
+    fi
+    return $fail
+}

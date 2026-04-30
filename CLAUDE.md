@@ -8,7 +8,7 @@ Personal zsh configuration. Entry point is `main`, which loads `env` and all scr
 - `env` - Loads `.env` secrets into the shell environment.
 - `bin/commit` - Semantic git commit helper for tenderly-core (conventional commits with emoji). Aliases: `lint`, `iter`, `ship`, `feat`, `chore`, `fix`, etc.
 - `bin/dev` - Dev utilities: `mkcd`, `close-port`, `secret` (gcloud), kubectl port-forwards for blockchain nodes, k8s context switching and scaling.
-- `bin/git` - Git aliases with a self-documenting `g.help` system using `verbose_alias`.
+- `bin/git` - Git aliases (no-separator, oh-my-zsh-style) with a self-documenting `ghelp` tree using `verbose_alias`. Branch lifecycle ops (sync/hack/append/ship/...) routed through `git town`. Old `.`-separator aliases (`gb.c`, `gp.suc`, ...) forward with a deprecation warning until 2026-05-30, then hard-removed. `gcheck` self-test verifies every alias resolves.
 - `bin/network` - Tenderly network lookup and block binary-search utilities (`network`, `find-block`, `binary-search-block`).
 - `bin/tenderly` - Tenderly gateway helper (`gw`) with network resolution, slug validation, and local mode. Also `mktdly` build helper.
 - `bin/personal/fun` - `mirko` easter egg.

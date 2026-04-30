@@ -167,8 +167,8 @@ function gw() {
 function mktdly {
     cwd=$(pwd)
     tdlycore
-    cb=$(gb.c)
-    gb.s.m
+    cb=$(gbc)
+    gbs
     make tdly CGO_LDFLAGS="-Wl,-no_compact_unwind"
     gco $cb
     cd $cwd
