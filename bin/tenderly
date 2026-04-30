@@ -3,6 +3,7 @@
 # Environment variables are loaded from .env by the env file
 
 alias tdlycore='cd /Users/beruda/Documents/tenderly.nosync/tenderly-core'
+alias rver="tmp/vnet/release-rpc.sh"
 
 function gw() {
     local network=$1
